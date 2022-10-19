@@ -2,17 +2,16 @@
 // Ported from <https://rosettacode.org/wiki/Perlin_noise#Go>
 
 const std    = @import("std");
-const math   = std.math;
 const expect = std.testing.expect;
 
 pub fn noise(x: f64, y: f64, z: f64) f64 {
-    const x_int = @floatToInt(usize, math.floor(x)) & 255;
-    const y_int = @floatToInt(usize, math.floor(y)) & 255;
-    const z_int = @floatToInt(usize, math.floor(z)) & 255;
+    const x_int = @intCast(usize, @floatToInt(isize, @floor(x)) & 255);
+    const y_int = @intCast(usize, @floatToInt(isize, @floor(y)) & 255);
+    const z_int = @intCast(usize, @floatToInt(isize, @floor(z)) & 255);
 
-    const x_float = x - math.floor(x);
-    const y_float = y - math.floor(y);
-    const z_float = z - math.floor(z);
+    const x_float = x - @floor(x);
+    const y_float = y - @floor(y);
+    const z_float = z - @floor(z);
 
     const u = fade(x_float);
     const v = fade(y_float);
@@ -35,11 +34,11 @@ pub fn noise(x: f64, y: f64, z: f64) f64 {
                      grad(permutation[bb+1], x_float-1, y_float-1, z_float-1))));
 }
 
-export fn lerp(t: f64, a: f64, b: f64) f64 {
+fn lerp(t: f64, a: f64, b: f64) f64 {
     return a + t * (b - a);
 }
 
-export fn fade(t: f64) f64 {
+fn fade(t: f64) f64 {
     return t * t * t * (t * (t * 6 - 15) + 10);
 }
 
@@ -60,7 +59,8 @@ export fn grad(h: usize, x: f64, y: f64, z: f64) f64 {
     }
 }
 
-const permutation = [_]usize {
+
+const permutation = [_]usize{
     151, 160, 137, 91,  90,  15,  131, 13,  201, 95,  96,  53,  194, 233, 7,   225,
     140, 36,  103, 30,  69,  142, 8,   99,  37,  240, 21,  10,  23,  190, 6,   148,
     247, 120, 234, 75,  0,   26,  197, 62,  94,  252, 219, 203, 117, 35,  11,  32,
@@ -98,6 +98,7 @@ const permutation = [_]usize {
 
 test "noise" {
     try expect(noise(3.14, 42, 7) == 0.13691995878400012);
+    try expect(noise(-4.20, 10, 6) == 0.14208000000000043);
 }
 
 test "lerp" {
