@@ -89,8 +89,8 @@ pub fn noise2D(comptime T: type, x: T, y: T) T {
 
     // Add blended results from all 4 corners of the square
     // Use `1.0` instead of `1` to let Zig know it must always be a float value
-    return lerp(v, lerp(u, grad2D(T, permutation[  aa  ], x_r,       y_r,     ),
-                           grad2D(T, permutation[  ba  ], x_r - 1.0, y_r,     )),
+    return lerp(v, lerp(u, grad2D(T, permutation[  aa  ], x_r,       y_r      ),
+                           grad2D(T, permutation[  ba  ], x_r - 1.0, y_r      )),
                    lerp(u, grad2D(T, permutation[  ab  ], x_r,       y_r - 1.0),
                            grad2D(T, permutation[  bb  ], x_r - 1.0, y_r - 1.0)));
 }
