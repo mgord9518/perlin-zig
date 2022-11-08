@@ -1,6 +1,10 @@
 // Simple Perlin noise library for Zig
 // Ported from <https://rosettacode.org/wiki/Perlin_noise#Go>
 
+// The performance difference between 1D, 2D and 3D (assuming all values
+// besides x are 0 for higher dimensions) is about half an order of magnitude
+// between each in debug mode but completely immeasurable in any release mode.
+
 const std    = @import("std");
 const expect = std.testing.expect;
 
@@ -39,14 +43,6 @@ pub fn noise3D(comptime T: type, x: T, y: T, z: T) T {
                                    grad3D(T, permutation[ba + 1], x_r - 1.0, y_r,       z_r - 1.0)),
                            lerp(u, grad3D(T, permutation[ab + 1], x_r,       y_r - 1.0, z_r - 1.0),
                                    grad3D(T, permutation[bb + 1], x_r - 1.0, y_r - 1.0, z_r - 1.0))));
-}
-
-fn lerp(t: anytype, a: anytype, b: anytype) @TypeOf(t, a, b) {
-    return a + t * (b - a);
-}
-
-fn fade(t: anytype) @TypeOf(t) {
-    return t * t * t * (t * (6.0 * t - 15.0) + 10.0);
 }
 
 fn grad3D(comptime T: type, h: u8, x: T, y: T, z: T) T {
@@ -110,7 +106,66 @@ fn grad2D(comptime T: type, h: u8, x: T, y: T) T {
     };
 }
 
-const permutation = [_]u8{
+pub fn noise1D(comptime T: type, x: T) T {
+    @setRuntimeSafety(false);
+
+    // Truncate float to u8 (256 possible values)
+    const x_i = @intCast(u8, @floatToInt(isize, @floor(x)) & 255);
+
+    // Float remainder of coords (eg: 5.34 -> 0.34)
+    const x_r = x - @floor(x);
+
+    const u = fade(x_r);
+
+    const a  = permutation[  x_i  ];
+    const aa = permutation[   a   ];
+    const b  = permutation[x_i + 1];
+    const ba = permutation[   b   ];
+
+    // Add blended results from both sides of line segment
+    // Use `1.0` instead of `1` to let Zig know it must always be a float value
+    return lerp(u, grad1D(T, permutation[  aa  ], x_r,     ),
+                   grad1D(T, permutation[  ba  ], x_r - 1.0));
+}
+
+fn grad1D(comptime T: type, h: u8, x: T) T {
+    const n = h & 15;
+
+    // Speed optimization
+    // inb4 "the switch is probably faster lmao" no, it isn't.
+    // I've tested this and it turns out to be about 20% faster in debug mode
+    if (n == 14) {
+        return -x;
+    } else if (n == 12) {
+        return  x;
+    } else if (n > 7) {
+        return  0;
+    } else if (n & 1 == 0) {
+        return  x;
+    } else {
+        return -x;
+    }
+
+    // Keeping this here for reference of what the code actually does
+//    return switch (h & 15) {
+//        0, 2, 4, 6, 12 =>  x,
+//        1, 3, 5, 7, 14 => -x,
+//        else           =>  0, // 8, 9, 10, 11, 13, 15
+//    };
+}
+
+// Helper functions
+fn lerp(t: anytype, a: anytype, b: anytype) @TypeOf(t, a, b) {
+    return a + t * (b - a);
+}
+
+fn fade(t: anytype) @TypeOf(t) {
+    return t * t * t * (t * (6.0 * t - 15.0) + 10.0);
+}
+
+// Permutation table from the original Java implementation of Perlin noise
+// TODO: Allow this to be overridden
+const permutation = [256]u8{
     151, 160, 137, 91,  90,  15,  131, 13,  201, 95,  96,  53,  194, 233, 7,   225,
     140, 36,  103, 30,  69,  142, 8,   99,  37,  240, 21,  10,  23,  190, 6,   148,
     247, 120, 234, 75,  0,   26,  197, 62,  94,  252, 219, 203, 117, 35,  11,  32,
@@ -132,7 +187,9 @@ const permutation = [_]u8{
 test "noise" {
     try expect(noise3D(f64,  3.14, 42, 7) == 0.13691995878400012);
     try expect(noise3D(f64, -4.20, 10, 6) == 0.14208000000000043);
-    try expect(noise2D(f32,  89.2, 0.123) == noise3D(f32, 89.2, 0.123, 0));
+    try expect(noise2D(f32,  89.2, 0.123) == noise3D(f32,  89.2, 0.123, 0));
+    try expect(noise1D(f32,  89.2)        == noise2D(f32,  89.2, 0));
+    try expect(noise1D(f32, -6.69)        == noise3D(f32, -6.69, 0, 0));
 }
 
 test "lerp" {
