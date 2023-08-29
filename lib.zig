@@ -1,1 +1,1 @@
-src/main.zig
+lib/perlin.zig
