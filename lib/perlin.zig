@@ -71,7 +71,7 @@ fn noise3D(comptime T: type, x: T, y: T, z: T) T {
                 grad3D(T, permutation[bb], x_r - 1, y_r - 1, z_r),
                 u,
             ),
-            w,
+            v,
         ),
         math.lerp(
             math.lerp(
