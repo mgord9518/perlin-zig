@@ -27,8 +27,7 @@ fn noise3D(comptime T: type, x: T, y: T, z: T) T {
     // Disable runtime safety to allow the permutation table values to wrap
     @setRuntimeSafety(false);
 
-    // Truncate float to u8 (256 possible values)
-
+    // Truncate float to u8 for use as indicies into the permutation table
     const x_i: u8 = @intCast(@as(
         isize,
         @intFromFloat(@floor(x)),
@@ -44,14 +43,13 @@ fn noise3D(comptime T: type, x: T, y: T, z: T) T {
         @intFromFloat(@floor(z)),
     ) & 255);
 
-    // Float remainder of coords (eg: 5.34 -> 0.34)
     const x_r = x - @floor(x);
     const y_r = y - @floor(y);
     const z_r = z - @floor(z);
 
-    const u = fade(x_r);
-    const v = fade(y_r);
-    const w = fade(z_r);
+    const u = fade(T, x_r);
+    const v = fade(T, y_r);
+    const w = fade(T, z_r);
 
     const a = permutation[x_i] +% y_i;
     const aa = permutation[a] +% z_i;
@@ -88,11 +86,10 @@ fn noise3D(comptime T: type, x: T, y: T, z: T) T {
             ),
             v,
         ),
-        v,
+        w,
     );
 }
 
-// Helper functions
 fn grad3D(comptime T: type, h: u8, x: T, y: T, z: T) T {
     return switch (@as(
         u4,
@@ -113,7 +110,7 @@ fn grad3D(comptime T: type, h: u8, x: T, y: T, z: T) T {
     };
 }
 
-fn fade(t: anytype) @TypeOf(t) {
+fn fade(comptime T: type, t: T) T {
     return t * t * t * (t * (6 * t - 15) + 10);
 }
 
@@ -153,7 +150,7 @@ test "noise" {
 }
 
 test "fade" {
-    try expect(fade(0.75) == 0.896484375);
+    try expect(fade(f64, 0.75) == 0.896484375);
 }
 
 test "grad" {
