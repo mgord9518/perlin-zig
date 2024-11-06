@@ -13,6 +13,10 @@ pub fn build(b: *std.Build) void {
 
     b.installArtifact(lib);
 
+    _ = b.addModule("perlin", .{
+        .root_source_file = b.path("lib/perlin.zig"),
+    });
+
     const unit_tests = b.addTest(.{
         .root_source_file = b.path("lib/perlin.zig"),
         .target = target,
