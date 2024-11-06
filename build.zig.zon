@@ -1,4 +1,10 @@
 .{
     .name = "perlin",
-    .version = "0.0.1",
+    .version = "0.0.2",
+
+    .paths = [][]const u8{
+        "build.zig",
+        "build.zig.zon",
+        "lib",
+    },
 }
