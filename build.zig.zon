@@ -1,6 +1,6 @@
 .{
     .name = "perlin",
-    .version = "0.0.2",
+    .version = "0.1.0",
 
     .paths = [][]const u8{
         "build.zig",

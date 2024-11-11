@@ -23,71 +23,101 @@ pub fn noise(comptime T: type, opts: Vec(T)) T {
     );
 }
 
-fn noise3D(comptime T: type, x: T, y: T, z: T) T {
-    // Disable runtime safety to allow the permutation table values to wrap
-    @setRuntimeSafety(false);
+fn Generator(comptime T: type) type {
+    return struct {
+        const Self = @This();
+        permutation_table: [256]u8,
 
-    // Truncate float to u8 for use as indicies into the permutation table
-    const x_i: u8 = @intCast(@as(
-        isize,
-        @intFromFloat(@floor(x)),
-    ) & 255);
+        x: T,
+        y: T,
+        z: T,
 
-    const y_i: u8 = @intCast(@as(
-        isize,
-        @intFromFloat(@floor(y)),
-    ) & 255);
+        u: T,
+        v: T,
+        w: T,
 
-    const z_i: u8 = @intCast(@as(
-        isize,
-        @intFromFloat(@floor(z)),
-    ) & 255);
+        X: u8,
+        Y: u8,
+        Z: u8,
 
-    const x_r = x - @floor(x);
-    const y_r = y - @floor(y);
-    const z_r = z - @floor(z);
+        fn init(comptime permutation_table: [256]u8, x: T, y: T, z: T) Self {
+            return .{
+                .permutation_table = permutation_table,
 
-    const u = fade(T, x_r);
-    const v = fade(T, y_r);
-    const w = fade(T, z_r);
+                .X = trunc(T, x),
+                .Y = trunc(T, y),
+                .Z = trunc(T, z),
 
-    const a = permutation[x_i] +% y_i;
-    const aa = permutation[a] +% z_i;
-    const ab = permutation[a + 1] +% z_i;
-    const b = permutation[x_i + 1] +% y_i;
-    const ba = permutation[b] +% z_i;
-    const bb = permutation[b + 1] +% z_i;
+                .x = x - @floor(x),
+                .y = y - @floor(y),
+                .z = z - @floor(z),
+
+                .u = fade(T, x - @floor(x)),
+                .v = fade(T, y - @floor(y)),
+                .w = fade(T, z - @floor(z)),
+            };
+        }
+
+        fn gradHash(
+            self: Self,
+            comptime x_off: comptime_int,
+            comptime y_off: comptime_int,
+            comptime z_off: comptime_int,
+        ) T {
+            return grad3D(
+                T,
+                self.hash(
+                    x_off,
+                    y_off,
+                    z_off,
+                ),
+                self.x - x_off,
+                self.y - y_off,
+                self.z - z_off,
+            );
+        }
+
+        fn hash(
+            self: Self,
+            add_x: u8,
+            add_y: u8,
+            add_z: u8,
+        ) u8 {
+            return self.permutation_table[
+                self.permutation_table[
+                    self.permutation_table[
+                        self.X +% add_x
+                    ] +% self.Y +% add_y
+                ] +% self.Z +% add_z
+            ];
+        }
+    };
+}
+
+fn noise3D(comptime T: type, x_f: T, y_f: T, z_f: T) T {
+    const gen = Generator(T).init(permutation, x_f, y_f, z_f);
 
     // Add blended results from all 8 corners of the cube
     return math.lerp(
         math.lerp(
-            math.lerp(
-                grad3D(T, permutation[aa], x_r, y_r, z_r),
-                grad3D(T, permutation[ba], x_r - 1, y_r, z_r),
-                u,
-            ),
-            math.lerp(
-                grad3D(T, permutation[ab], x_r, y_r - 1, z_r),
-                grad3D(T, permutation[bb], x_r - 1, y_r - 1, z_r),
-                u,
-            ),
-            v,
+            math.lerp(gen.gradHash(0, 0, 0), gen.gradHash(1, 0, 0), gen.u),
+            math.lerp(gen.gradHash(0, 1, 0), gen.gradHash(1, 1, 0), gen.u),
+            gen.v,
         ),
         math.lerp(
-            math.lerp(
-                grad3D(T, permutation[aa + 1], x_r, y_r, z_r - 1),
-                grad3D(T, permutation[ba + 1], x_r - 1, y_r, z_r - 1),
-                u,
-            ),
-            math.lerp(
-                grad3D(T, permutation[ab + 1], x_r, y_r - 1, z_r - 1),
-                grad3D(T, permutation[bb + 1], x_r - 1, y_r - 1, z_r - 1),
-                u,
-            ),
-            v,
+            math.lerp(gen.gradHash(0, 0, 1), gen.gradHash(1, 0, 1), gen.u),
+            math.lerp(gen.gradHash(0, 1, 1), gen.gradHash(1, 1, 1), gen.u),
+            gen.v,
         ),
-        w,
+        gen.w,
     );
+}
+
+fn trunc(comptime T: type, a: T) u8 {
+    return @intCast(@as(
+        isize,
+        @intFromFloat(@floor(a)),
+    ) & 255);
 }
 
 fn grad3D(comptime T: type, h: u8, x: T, y: T, z: T) T {
@@ -147,6 +177,18 @@ test "noise" {
         .y = 10,
         .z = 6,
     }) == 0.14208000000000043);
+
+    try expect(noise(f64, .{
+        .x = 123.64,
+        .y = 456.3,
+        .z = 567.69,
+    }) == 0.20741724708492298);
+
+    try expect(noise(f64, .{
+        .x = 0,
+        .y = -37.603,
+        .z = 0,
+    }) == -0.46132743018244055);
 }
 
 test "fade" {
