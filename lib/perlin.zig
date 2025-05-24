@@ -13,9 +13,10 @@ pub fn Vec(comptime T: type) type {
     };
 }
 
-pub fn noise(comptime T: type, opts: Vec(T)) T {
+pub fn noise(comptime T: type, comptime permutation_table: [256]u8, opts: Vec(T)) T {
     return noise3D(
         T,
+        permutation_table,
 
         opts.x,
         opts.y,
@@ -94,8 +95,8 @@ fn Generator(comptime T: type) type {
     };
 }
 
-fn noise3D(comptime T: type, x_f: T, y_f: T, z_f: T) T {
-    const gen = Generator(T).init(permutation, x_f, y_f, z_f);
+fn noise3D(comptime T: type, comptime permutation_table: [256]u8, x: T, y: T, z: T) T {
+    const gen = Generator(T).init(permutation_table, x, y, z);
 
     // Add blended results from all 8 corners of the cube
     return math.lerp(
@@ -145,7 +146,6 @@ fn fade(comptime T: type, t: T) T {
 }
 
 // Permutation table from the original Java implementation of Perlin noise
-// TODO: Allow this to be overridden
 pub const permutation = [256]u8{
     151, 160, 137, 91,  90,  15,  131, 13,  201, 95,  96,  53,  194, 233, 7,   225,
     140, 36,  103, 30,  69,  142, 8,   99,  37,  240, 21,  10,  23,  190, 6,   148,
@@ -166,25 +166,25 @@ pub const permutation = [256]u8{
 };
 
 test "noise" {
-    try expect(noise(f64, .{
+    try expect(noise(f64, permutation, .{
         .x = 3.14,
         .y = 42,
         .z = 7,
     }) == 0.13691995878400012);
 
-    try expect(noise(f64, .{
+    try expect(noise(f64, permutation, .{
         .x = -4.20,
         .y = 10,
         .z = 6,
     }) == 0.14208000000000043);
 
-    try expect(noise(f64, .{
+    try expect(noise(f64, permutation, .{
         .x = 123.64,
         .y = 456.3,
         .z = 567.69,
     }) == 0.20741724708492298);
 
-    try expect(noise(f64, .{
+    try expect(noise(f64, permutation, .{
         .x = 0,
         .y = -37.603,
         .z = 0,
